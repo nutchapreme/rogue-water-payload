@@ -21,7 +21,7 @@ const int servoPin = 6;
 // --- Easy Mini Signal Setup ---
 const int droguePin = A0;   // Original channel for the stepper
 const int apogeePin = A1;   // NEW channel for the servo
-const int threshold = 1000;  // Your working threshold
+const int threshold = 1000;  // the working threshold
 
 // Flags to ensure events only trigger once per flight
 bool payloadDeployed = false;
@@ -54,23 +54,23 @@ void loop() {
   if (!valveOpened) {
     int apogeeValue = analogRead(apogeePin);
 
-    // Check if the apogee signal drops below threshold
+    // check if the apogee signal drops below threshold
     if (apogeeValue < threshold) {
       Serial.println("!!! APOGEE DETECTED - OPENING VALVE !!!");
 
-      // Command servo to turn 180 degrees
+      // command servo to turn 180 degrees
       valveServo.write(servo_open);
 
-      // Lock the valve sequence so it doesn't trigger again
+      // lock the valve sequence so it doesn't trigger again
       valveOpened = true;
     }
   }
 
-  // --- DROGUE/MAIN LOGIC (Stepper Motor) ---
+  // --- DROGUE/MAIN (Stepper Motor) ---
   if (!payloadDeployed) {
     int drogueValue = analogRead(droguePin);
 
-    // Diagnostic Printing (Prints both channels side-by-side)
+    // Diagnostic Printing (both channels side-by-side)
     if (millis() - lastPrintTime > 500) {
       Serial.print("Idle Volts -> A0 (Stepper): ");
       Serial.print(drogueValue);
@@ -98,7 +98,7 @@ void loop() {
     }
   }
 
-  // Small 10ms delay to stabilize readings
+  // stabilize readings
   delay(10);
 }
 
