@@ -1,0 +1,110 @@
+#include <Stepper.h>
+#include <Servo.h>
+
+// --- Stepper Motor Setup ---
+const int STEPS_PER_REV = 200;
+const int stepperPin1 = 8;
+const int stepperPin2 = 9;
+const int stepperPin3 = 10;
+const int stepperPin4 = 11;
+
+// --- Servo Degree ---
+const int servo_close = 0;
+const int servo_open = 135;
+
+Stepper stepper_NEMA17(STEPS_PER_REV, stepperPin1, stepperPin2, stepperPin3, stepperPin4);
+
+// --- Servo Setup ---
+Servo valveServo;
+const int servoPin = 6;
+
+// --- Easy Mini Signal Setup ---
+const int droguePin = A0;   // Original channel for the stepper
+const int apogeePin = A1;   // NEW channel for the servo
+const int threshold = 1000;  // Your working threshold
+
+// Flags to ensure events only trigger once per flight
+bool payloadDeployed = false;
+bool valveOpened = false;
+
+// Timer to control how often the baseline number prints
+unsigned long lastPrintTime = 0;
+
+void setup() {
+  Serial.begin(9600);
+
+  // Initialize Stepper
+  stepper_NEMA17.setSpeed(100);
+
+  // Initialize Servo and set to closed position (0 degrees)
+  //valveServo.attach(servoPin);
+  //valveServo.write(135);
+  valveServo.attach(servoPin);
+  valveServo.write(servo_close);
+
+  Serial.println("Arduino booting. Allowing voltages to stabilize...");
+  delay(2000); // 2-second grace period
+
+  Serial.println("Arduino ready. Monitoring Apogee (A1) and Drogue (A0)...");
+}
+
+void loop() {
+
+  // --- APOGEE LOGIC (Servo Valve) ---
+  if (!valveOpened) {
+    int apogeeValue = analogRead(apogeePin);
+
+    // Check if the apogee signal drops below threshold
+    if (apogeeValue < threshold) {
+      Serial.println("!!! APOGEE DETECTED - OPENING VALVE !!!");
+
+      // Command servo to turn 180 degrees
+      valveServo.write(servo_open);
+
+      // Lock the valve sequence so it doesn't trigger again
+      valveOpened = true;
+    }
+  }
+
+  // --- DROGUE/MAIN LOGIC (Stepper Motor) ---
+  if (!payloadDeployed) {
+    int drogueValue = analogRead(droguePin);
+
+    // Diagnostic Printing (Prints both channels side-by-side)
+    if (millis() - lastPrintTime > 500) {
+      Serial.print("Idle Volts -> A0 (Stepper): ");
+      Serial.print(drogueValue);
+      Serial.print(" | A1 (Servo): ");
+      Serial.println(analogRead(apogeePin));
+      lastPrintTime = millis();
+    }
+
+    // Check if the drogue signal drops below threshold
+    if (drogueValue < threshold) {
+      Serial.println("!!! DROGUE CHARGE FIRING DETECTED !!!");
+      Serial.println("Spinning motor for 60 seconds...");
+
+      unsigned long startTime = millis();
+
+      while (millis() - startTime < 60000UL) {
+        stepper_NEMA17.step(-STEPS_PER_REV / 10);
+      }
+
+      Serial.println("1 Minute complete. Powering down motor coils.");
+      stepperPowerDown();
+
+      // Lock the stepper sequence so it doesn't trigger again
+      payloadDeployed = true;
+    }
+  }
+
+  // Small 10ms delay to stabilize readings
+  delay(10);
+}
+
+void stepperPowerDown() {
+  digitalWrite(stepperPin1, LOW);
+  digitalWrite(stepperPin2, LOW);
+  digitalWrite(stepperPin3, LOW);
+  digitalWrite(stepperPin4, LOW);
+}
