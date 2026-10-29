@@ -1,0 +1,133 @@
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BMP3XX.h>
+#include <Servo.h>
+
+//LED indicators
+#define redLEDAscent 7
+#define yellowLEDApogee 8
+#define blueLEDPayload 9
+
+Adafruit_BMP3XX bmp;
+float groundPressure;
+float peakAltitude = 0.0;
+int descentCount = 0;
+const int apogeeThreshold = 5;
+bool apogeeDetected = false;
+bool payloadDeployed = false;
+bool flightStarted = false;
+
+const int stepPin = 2;
+const int dirPin = 3;
+const int enPin = 4;
+
+// ===== MOTOR SPEED =====
+const int startDelayUs  = 2500;  // slow start (high torque)
+const int targetDelayUs = 800;   // final speed — lower = faster (1500 = old speed)
+const int rampStepUs    = 2;     // how fast it speeds up (smaller = smoother)
+const unsigned long motorRunMs = 60000UL;
+
+Servo valveServo;
+const int servoPin = 6;
+const int VALVE_CLOSED = 0;    // adjust if it buzzes at rest
+const int VALVE_OPEN   = 90;
+
+void setup() {
+  Serial.begin(9600);
+
+  if (!bmp.begin_I2C()){
+    Serial.println("no valid BMP3 sensor");
+    while(1);
+  }
+
+  bmp.setTemperatureOversampling(BMP3_OVERSAMPLING_8X);
+  bmp.setPressureOversampling(BMP3_OVERSAMPLING_4X);
+  bmp.setIIRFilterCoeff(BMP3_IIR_FILTER_COEFF_3);
+  bmp.setOutputDataRate(BMP3_ODR_50_HZ);
+
+  pinMode(redLEDAscent, OUTPUT);
+  pinMode(yellowLEDApogee, OUTPUT);
+  pinMode(blueLEDPayload, OUTPUT);
+  digitalWrite(redLEDAscent, LOW);
+  digitalWrite(yellowLEDApogee, LOW);
+  digitalWrite(blueLEDPayload, LOW);
+
+  // stepper disabled until deploy
+  pinMode(stepPin, OUTPUT);
+  pinMode(dirPin, OUTPUT);
+  pinMode(enPin, OUTPUT);
+  digitalWrite(enPin, HIGH);
+
+  for (int i = 0; i < 5; i++){
+    bmp.performReading();
+    delay(10);
+  }
+  groundPressure = bmp.pressure / 100.0;
+
+  valveServo.attach(servoPin);
+  valveServo.write(VALVE_CLOSED);   // start CLOSED
+
+  Serial.println("ready (type 'd' to force deploy)");
+}
+
+void loop() {
+  // TEST ONLY — REMOVE BEFORE FLIGHT
+  if (Serial.available() && Serial.read() == 'd') {
+    flightStarted = true;
+    apogeeDetected = true;
+    descentCount = apogeeThreshold;
+    Serial.println("forced deploy");
+  }
+
+  if (!bmp.performReading()) return;
+
+  float currAltitude = bmp.readAltitude(groundPressure);
+
+  if (!flightStarted && currAltitude > 3.0){
+    flightStarted = true;
+    Serial.println("flight started");
+  }
+
+  if (flightStarted && !apogeeDetected){
+    if (currAltitude > peakAltitude){
+      digitalWrite(redLEDAscent, HIGH);
+      peakAltitude = currAltitude;
+      descentCount = 0;
+    } else if (currAltitude < (peakAltitude - 1.5)){
+      digitalWrite(redLEDAscent, LOW);
+      descentCount++;
+    } else {
+      descentCount = 0;
+    }
+  }
+
+  if (descentCount >= apogeeThreshold && !payloadDeployed){
+    Serial.println("apogee detected");
+    digitalWrite(yellowLEDApogee, HIGH);
+    apogeeDetected = true;
+
+    valveServo.write(VALVE_OPEN);   // OPEN
+    delay(2000);
+
+    // stepper with ramp-up
+    digitalWrite(dirPin, HIGH);
+    digitalWrite(enPin, LOW);
+    delay(10);
+
+    int stepDelay = startDelayUs;
+    unsigned long startTime = millis();
+    while (millis() - startTime < motorRunMs){
+      digitalWrite(stepPin, HIGH);
+      delayMicroseconds(stepDelay);
+      digitalWrite(stepPin, LOW);
+      delayMicroseconds(stepDelay);
+      if (stepDelay > targetDelayUs) stepDelay -= rampStepUs;
+    }
+    digitalWrite(enPin, HIGH);
+
+    payloadDeployed = true;           // servo stays attached = holds open
+    digitalWrite(blueLEDPayload, HIGH);
+  }
+
+  delay(50);
+}
