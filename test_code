@@ -1,0 +1,109 @@
+// Motor + Servo test — Serial Monitor 9600
+// SERVO:  o = open (90)   c = close (0)   m = sweep 0->90->0
+// STEPPER: e = enable  x = disable  s = 10 slow steps
+//          1 = slow 3s  2 = medium 3s  3 = fast 3s (ramped)  r = reverse
+// FULL:   d = deploy sequence (open servo, then stepper 10s)
+
+#include <Servo.h>
+
+const int stepPin = 2;
+const int dirPin  = 3;
+const int enPin   = 4;           // LOW = enabled
+
+Servo valveServo;
+const int servoPin = 6;
+const int VALVE_CLOSED = 0;
+const int VALVE_OPEN   = 90;
+
+bool dir = HIGH;
+
+void pulse(int us) {
+  digitalWrite(stepPin, HIGH);
+  delayMicroseconds(us);
+  digitalWrite(stepPin, LOW);
+  delayMicroseconds(us);
+}
+
+void runRamped(int startUs, int targetUs, unsigned long ms) {
+  digitalWrite(enPin, LOW);
+  delay(10);
+  int d = startUs;
+  unsigned long steps = 0;
+  unsigned long t = millis();
+  while (millis() - t < ms) {
+    pulse(d);
+    steps++;
+    if (d > targetUs) d -= 2;
+  }
+  digitalWrite(enPin, HIGH);
+  Serial.print("done, steps: "); Serial.println(steps);
+}
+
+void setup() {
+  Serial.begin(9600);
+
+  pinMode(stepPin, OUTPUT);
+  pinMode(dirPin, OUTPUT);
+  pinMode(enPin, OUTPUT);
+  digitalWrite(enPin, HIGH);     // stepper off
+  digitalWrite(dirPin, dir);
+
+  valveServo.attach(servoPin);
+  valveServo.write(VALVE_CLOSED);
+
+  Serial.println("ready: o c m | e x s 1 2 3 r | d");
+}
+
+void loop() {
+  if (!Serial.available()) return;
+  char c = Serial.read();
+
+  // ---- SERVO ----
+  if (c == 'o') {
+    valveServo.write(VALVE_OPEN);
+    Serial.println("servo OPEN (90)");
+  }
+  else if (c == 'c') {
+    valveServo.write(VALVE_CLOSED);
+    Serial.println("servo CLOSED (0)");
+  }
+  else if (c == 'm') {
+    Serial.println("servo sweep");
+    for (int a = 0; a <= 90; a += 5) { valveServo.write(a); delay(40); }
+    for (int a = 90; a >= 0; a -= 5) { valveServo.write(a); delay(40); }
+    Serial.println("sweep done");
+  }
+
+  // ---- STEPPER ----
+  else if (c == 'e') {
+    digitalWrite(enPin, LOW);
+    Serial.println("stepper ENABLED - shaft should lock");
+  }
+  else if (c == 'x') {
+    digitalWrite(enPin, HIGH);
+    Serial.println("stepper DISABLED - shaft free");
+  }
+  else if (c == 's') {
+    digitalWrite(enPin, LOW);
+    Serial.println("10 slow steps");
+    for (int i = 0; i < 10; i++) { pulse(1000); Serial.println(i + 1); delay(500); }
+  }
+  else if (c == '1') { Serial.println("slow");   runRamped(2500, 1500, 3000); }
+  else if (c == '2') { Serial.println("medium"); runRamped(2500, 1000, 3000); }
+  else if (c == '3') { Serial.println("fast");   runRamped(2500, 800,  3000); }
+  else if (c == 'r') {
+    dir = !dir;
+    digitalWrite(dirPin, dir);
+    Serial.println(dir ? "DIR = HIGH" : "DIR = LOW");
+  }
+
+  // ---- FULL SEQUENCE ----
+  else if (c == 'd') {
+    Serial.println("DEPLOY: servo open");
+    valveServo.write(VALVE_OPEN);
+    delay(2000);
+    Serial.println("DEPLOY: stepper 10s");
+    runRamped(2500, 800, 10000);
+    Serial.println("DEPLOY done");
+  }
+}
