@@ -2,8 +2,10 @@
 Payload electronics for NYU's first hybrid rocket
 
 # First prototype
-**Components**: EasyMini, Arduino Nano, L298N, stepper motor, standard servo, 2X 9V Battery
-**How it works**: EasyMini detects altitude, once reach apogee it sends signal to Arduino to turn servo 90 degree pos, L298N drives the motor to push water-ballast
+**Components**: EasyMini, Arduino Nano, L298N, stepper motor, standard servo, 2X 9V Battery\
+
+**How it works**: EasyMini detects altitude, once reach apogee it sends signal to Arduino to turn servo 90 degree pos, L298N drives the motor to push water-ballast\
+
 **Issue**: payload was too messy, cannot adjust to higher speed without losing torque strength
 
 # Cleaned up payload
