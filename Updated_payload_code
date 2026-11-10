@@ -72,7 +72,7 @@ void setup() {
   }
 
   bubbleSortAscending(pressureArr, 10);
-
+  groundPressure = pressureArr[5];
   
 
   valveServo.attach(servoPin);
