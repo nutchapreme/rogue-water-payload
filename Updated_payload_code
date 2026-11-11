@@ -31,7 +31,7 @@ const int enPin = 4;
 const int startDelayUs  = 2500;  // slow start (high torque)
 const int targetDelayUs = 800;   // final speed — lower = faster (1500 = old speed)
 const int rampStepUs    = 2;     // how fast it speeds up (smaller = smoother)
-const unsigned long motorRunMs = 40000UL; //ADJUST TIME here (4000UL=40s, 3500UL=35s etc)
+const unsigned long motorRunMs = 40000UL; //ADJUST TIME here (40000UL=40s, 35000UL=35s etc)
 
 Servo valveServo;
 const int servoPin = 6;
@@ -72,7 +72,7 @@ void setup() {
   }
 
   bubbleSortAscending(pressureArr, 10);
-  groundPressure = pressureArr[5];
+  groundPressure = (pressureArr[4]+pressureArr[5]) / 2.0;
   
 
   valveServo.attach(servoPin);
