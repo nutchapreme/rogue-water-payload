@@ -11,7 +11,7 @@
 #define blueLEDPayload 9
 
 //pressure array
-int pressureArr[10];
+float pressureArr[10];
 int elemCount = 0;
 
 Adafruit_BMP3XX bmp;
@@ -143,11 +143,11 @@ void loop() {
   delay(50);
 }
 
-void bubbleSortAscending(int arr[], int size) {
+void bubbleSortAscending(float arr[], int size) {
   for (int i = 0; i < size - 1; i++) {
-    for (int j= 0; j< size - i - 1; j++) {
-      if(arr[j]>arr[j+1]){
-        int temp = arr[j];
+    for (int j = 0; j < size - i - 1; j++) {
+      if (arr[j] > arr[j+1]) {
+        float temp = arr[j];
         arr[j] = arr[j+1];
         arr[j+1] = temp;
       }
