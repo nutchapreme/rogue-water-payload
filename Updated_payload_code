@@ -17,6 +17,7 @@ int elemCount = 0;
 Adafruit_BMP3XX bmp;
 float groundPressure;
 float peakAltitude = 0.0;
+float prevAltitude = 0.0;
 int descentCount = 0;
 const int apogeeThreshold = 5;
 bool apogeeDetected = false;
@@ -104,13 +105,14 @@ void loop() {
       digitalWrite(redLEDAscent, HIGH);
       peakAltitude = currAltitude;
       descentCount = 0;
-    } else if (currAltitude < (peakAltitude - 3)){
+    } else if (currAltitude < (peakAltitude - 3) && currAltitude <= prevAltitude + 0.3){
       digitalWrite(redLEDAscent, LOW);
       descentCount++;
     } else {
       descentCount = 0;
     }
   }
+  prevAltitude = currAltitude;
 
   if (descentCount >= apogeeThreshold && !payloadDeployed){
     Serial.println("apogee detected");
